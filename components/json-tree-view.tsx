@@ -135,7 +135,7 @@ export const JsonTreeView = forwardRef<HTMLDivElement, JsonTreeViewProps>(
       <div className="border border-border rounded-lg overflow-hidden bg-card">
         <div
           ref={ref}
-          className="max-h-[600px] overflow-y-auto"
+          className="max-h-150 overflow-y-auto"
           onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
         >
           {nodes.map((node) => (
