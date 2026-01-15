@@ -61,141 +61,74 @@ function diffValue(
   const leftParsed = tryParseJsonString(left);
   const rightParsed = tryParseJsonString(right);
 
-  if (leftParsed.isParsedJson || rightParsed.isParsedJson) {
-    const leftExpanded = leftParsed.isParsedJson ? leftParsed.parsed : left;
-    const rightExpanded = rightParsed.isParsedJson ? rightParsed.parsed : right;
+  const isParsedJsonString = leftParsed.isParsedJson || rightParsed.isParsedJson;
+  const effectiveLeft = leftParsed.isParsedJson ? leftParsed.parsed : left;
+  const effectiveRight = rightParsed.isParsedJson ? rightParsed.parsed : right;
 
-    const effectiveLeftType = getType(leftExpanded);
-    const effectiveRightType = getType(rightExpanded);
+  const leftType = getType(effectiveLeft);
+  const rightType = getType(effectiveRight);
 
-    if (leftExpanded === undefined && rightExpanded !== undefined) {
-      return {
-        key,
-        path,
-        status: "added",
-        type: effectiveRightType,
-        rightValue: rightExpanded,
-        isParsedJsonString: true,
-        children:
-          effectiveRightType !== "primitive"
-            ? diffChildren(key, path, undefined, rightExpanded)
-            : undefined,
-      };
-    }
+  const baseNode = {
+    key,
+    path,
+    ...(isParsedJsonString && { isParsedJsonString: true }),
+  };
 
-    if (leftExpanded !== undefined && rightExpanded === undefined) {
-      return {
-        key,
-        path,
-        status: "removed",
-        type: effectiveLeftType,
-        leftValue: leftExpanded,
-        isParsedJsonString: true,
-        children:
-          effectiveLeftType !== "primitive"
-            ? diffChildren(key, path, leftExpanded, undefined)
-            : undefined,
-      };
-    }
-
-    if (effectiveLeftType !== effectiveRightType) {
-      return {
-        key,
-        path,
-        status: "changed",
-        type: effectiveRightType,
-        leftValue: leftExpanded,
-        rightValue: rightExpanded,
-        isParsedJsonString: true,
-      };
-    }
-
-    if (effectiveLeftType === "primitive") {
-      return {
-        key,
-        path,
-        status: isEqual(leftExpanded, rightExpanded) ? "unchanged" : "changed",
-        type: "primitive",
-        leftValue: leftExpanded,
-        rightValue: rightExpanded,
-        isParsedJsonString: true,
-      };
-    }
-
-    const children = diffChildren(key, path, leftExpanded, rightExpanded);
-    const hasChanges = children.some((c) => c.status !== "unchanged");
-
+  if (effectiveLeft === undefined && effectiveRight !== undefined) {
     return {
-      key,
-      path,
-      status: hasChanges ? "changed" : "unchanged",
-      type: effectiveLeftType,
-      leftValue: leftExpanded,
-      rightValue: rightExpanded,
-      isParsedJsonString: true,
-      children,
-    };
-  }
-
-  const leftType = getType(left);
-  const rightType = getType(right);
-
-  if (left === undefined && right !== undefined) {
-    return {
-      key,
-      path,
+      ...baseNode,
       status: "added",
       type: rightType,
-      rightValue: right,
+      rightValue: effectiveRight,
       children:
-        rightType !== "primitive" ? diffChildren(key, path, undefined, right) : undefined,
+        rightType !== "primitive"
+          ? diffChildren(key, path, undefined, effectiveRight)
+          : undefined,
     };
   }
 
-  if (left !== undefined && right === undefined) {
+  if (effectiveLeft !== undefined && effectiveRight === undefined) {
     return {
-      key,
-      path,
+      ...baseNode,
       status: "removed",
       type: leftType,
-      leftValue: left,
+      leftValue: effectiveLeft,
       children:
-        leftType !== "primitive" ? diffChildren(key, path, left, undefined) : undefined,
+        leftType !== "primitive"
+          ? diffChildren(key, path, effectiveLeft, undefined)
+          : undefined,
     };
   }
 
   if (leftType !== rightType) {
     return {
-      key,
-      path,
+      ...baseNode,
       status: "changed",
       type: rightType,
-      leftValue: left,
-      rightValue: right,
+      leftValue: effectiveLeft,
+      rightValue: effectiveRight,
     };
   }
 
   if (leftType === "primitive") {
     return {
-      key,
-      path,
-      status: isEqual(left, right) ? "unchanged" : "changed",
+      ...baseNode,
+      status: isEqual(effectiveLeft, effectiveRight) ? "unchanged" : "changed",
       type: "primitive",
-      leftValue: left,
-      rightValue: right,
+      leftValue: effectiveLeft,
+      rightValue: effectiveRight,
     };
   }
 
-  const children = diffChildren(key, path, left, right);
+  const children = diffChildren(key, path, effectiveLeft, effectiveRight);
   const hasChanges = children.some((c) => c.status !== "unchanged");
 
   return {
-    key,
-    path,
+    ...baseNode,
     status: hasChanges ? "changed" : "unchanged",
     type: leftType,
-    leftValue: left,
-    rightValue: right,
+    leftValue: effectiveLeft,
+    rightValue: effectiveRight,
     children,
   };
 }
