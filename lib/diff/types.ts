@@ -8,6 +8,7 @@ export interface JsonDiffNode {
   leftValue?: unknown;
   rightValue?: unknown;
   children?: JsonDiffNode[];
+  isParsedJsonString?: boolean;
 }
 
 export interface DiffSummary {

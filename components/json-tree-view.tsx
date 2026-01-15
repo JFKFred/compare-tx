@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { JsonDiffNode, DiffStatus } from "@/lib/diff/types";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ interface JsonTreeViewProps {
   side: "left" | "right";
   expandedPaths: Set<string>;
   onToggle: (path: string) => void;
+  onScroll?: (scrollTop: number) => void;
 }
 
 function getStatusClass(status: DiffStatus): string {
@@ -33,9 +34,6 @@ function formatValue(value: unknown): string {
     return "";
   }
   if (typeof value === "string") {
-    if (value.length > 40) {
-      return `"${value.slice(0, 37)}..."`;
-    }
     return `"${value}"`;
   }
   if (typeof value === "boolean" || typeof value === "number") {
@@ -106,7 +104,12 @@ function TreeNode({ node, side, depth, expandedPaths, onToggle }: TreeNodeProps)
           <span className="w-4" />
         )}
         <span className="text-muted-foreground">{node.key}:</span>
-        <span className="truncate">{formatValue(value)}</span>
+        {node.isParsedJsonString && (
+          <span className="text-xs text-blue-500 px-1" title="Parsed from JSON string">
+            JSON
+          </span>
+        )}
+        <span className="break-all">{formatValue(value)}</span>
       </div>
       {hasChildren && isExpanded && (
         <div>
@@ -126,31 +129,32 @@ function TreeNode({ node, side, depth, expandedPaths, onToggle }: TreeNodeProps)
   );
 }
 
-export function JsonTreeView({
-  nodes,
-  side,
-  expandedPaths,
-  onToggle,
-}: JsonTreeViewProps) {
-  return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
-      <div className="max-h-[600px] overflow-y-auto">
-        {nodes.map((node) => (
-          <TreeNode
-            key={node.path}
-            node={node}
-            side={side}
-            depth={0}
-            expandedPaths={expandedPaths}
-            onToggle={onToggle}
-          />
-        ))}
-        {nodes.length === 0 && (
-          <div className="p-4 text-center text-muted-foreground">
-            No data to display
-          </div>
-        )}
+export const JsonTreeView = forwardRef<HTMLDivElement, JsonTreeViewProps>(
+  function JsonTreeView({ nodes, side, expandedPaths, onToggle, onScroll }, ref) {
+    return (
+      <div className="border border-border rounded-lg overflow-hidden bg-card">
+        <div
+          ref={ref}
+          className="max-h-[600px] overflow-y-auto"
+          onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
+        >
+          {nodes.map((node) => (
+            <TreeNode
+              key={node.path}
+              node={node}
+              side={side}
+              depth={0}
+              expandedPaths={expandedPaths}
+              onToggle={onToggle}
+            />
+          ))}
+          {nodes.length === 0 && (
+            <div className="p-4 text-center text-muted-foreground">
+              No data to display
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+);

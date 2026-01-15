@@ -1,22 +1,56 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import type { JsonDiff } from "@/lib/diff/types";
+import { useState, useCallback, useRef } from "react";
+import type { JsonDiff, JsonDiffNode } from "@/lib/diff/types";
 import { JsonTreeView } from "./json-tree-view";
 
 interface TransactionComparisonViewProps {
   diff: JsonDiff;
 }
 
+function collectAllPaths(nodeList: JsonDiffNode[]): Set<string> {
+  const paths = new Set<string>();
+  function collect(nodes: JsonDiffNode[]) {
+    for (const node of nodes) {
+      paths.add(node.path);
+      if (node.children) {
+        collect(node.children);
+      }
+    }
+  }
+  collect(nodeList);
+  return paths;
+}
+
 export function TransactionComparisonView({ diff }: TransactionComparisonViewProps) {
   const { nodes, summary } = diff;
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    for (const node of nodes) {
-      initial.add(node.path);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => collectAllPaths(nodes));
+
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
+  const isScrolling = useRef(false);
+
+  const handleLeftScroll = useCallback((scrollTop: number) => {
+    if (isScrolling.current) return;
+    isScrolling.current = true;
+    if (rightScrollRef.current) {
+      rightScrollRef.current.scrollTop = scrollTop;
     }
-    return initial;
-  });
+    requestAnimationFrame(() => {
+      isScrolling.current = false;
+    });
+  }, []);
+
+  const handleRightScroll = useCallback((scrollTop: number) => {
+    if (isScrolling.current) return;
+    isScrolling.current = true;
+    if (leftScrollRef.current) {
+      leftScrollRef.current.scrollTop = scrollTop;
+    }
+    requestAnimationFrame(() => {
+      isScrolling.current = false;
+    });
+  }, []);
 
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths((prev) => {
@@ -31,17 +65,7 @@ export function TransactionComparisonView({ diff }: TransactionComparisonViewPro
   }, []);
 
   const expandAll = useCallback(() => {
-    const allPaths = new Set<string>();
-    function collectPaths(nodeList: typeof nodes) {
-      for (const node of nodeList) {
-        allPaths.add(node.path);
-        if (node.children) {
-          collectPaths(node.children);
-        }
-      }
-    }
-    collectPaths(nodes);
-    setExpandedPaths(allPaths);
+    setExpandedPaths(collectAllPaths(nodes));
   }, [nodes]);
 
   const collapseAll = useCallback(() => {
@@ -93,16 +117,20 @@ export function TransactionComparisonView({ diff }: TransactionComparisonViewPro
 
       <div className="grid grid-cols-2 gap-4">
         <JsonTreeView
+          ref={leftScrollRef}
           nodes={nodes}
           side="left"
           expandedPaths={expandedPaths}
           onToggle={handleToggle}
+          onScroll={handleLeftScroll}
         />
         <JsonTreeView
+          ref={rightScrollRef}
           nodes={nodes}
           side="right"
           expandedPaths={expandedPaths}
           onToggle={handleToggle}
+          onScroll={handleRightScroll}
         />
       </div>
 
