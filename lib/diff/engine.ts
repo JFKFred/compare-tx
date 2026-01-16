@@ -26,6 +26,14 @@ function tryParseJsonString(value: unknown): JsonStringParseResult {
   }
 }
 
+function sortArrayByJson(arr: unknown[]): unknown[] {
+  return [...arr].sort((a, b) => {
+    const aStr = JSON.stringify(a);
+    const bStr = JSON.stringify(b);
+    return aStr.localeCompare(bStr);
+  });
+}
+
 function getType(value: unknown): "object" | "array" | "primitive" {
   if (Array.isArray(value)) {
     return "array";
@@ -162,8 +170,14 @@ function diffArrays(
   left: unknown[] | undefined,
   right: unknown[] | undefined
 ): JsonDiffNode[] {
-  const leftArr = left || [];
-  const rightArr = right || [];
+  let leftArr = left || [];
+  let rightArr = right || [];
+
+  if (parentPath === "witnessSet.plutus_data.elems") {
+    leftArr = sortArrayByJson(leftArr);
+    rightArr = sortArrayByJson(rightArr);
+  }
+
   const maxLen = Math.max(leftArr.length, rightArr.length);
   const nodes: JsonDiffNode[] = [];
 
