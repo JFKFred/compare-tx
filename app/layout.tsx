@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,9 +14,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Comapre TX",
+  title: "Compare TX",
   description: "Compare Cardano transactions side by side.",
 };
+
+const themeScript = `
+  (function() {
+    const stored = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const theme = stored || "system";
+    const isDark = theme === "dark" || (theme === "system" && prefersDark);
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    }
+  })();
+`;
 
 export default function RootLayout({
   children,
@@ -23,10 +36,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <SiteHeader />
         {children}
       </body>
     </html>
