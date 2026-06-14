@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isOk } from "trynot";
 import type { TxJson } from "@/lib/cardano/parser";
 import type { JsonDiff } from "@/lib/diff/types";
 import { parseTransaction } from "@/lib/cardano/parser";
@@ -18,7 +19,7 @@ interface ComparisonState {
 interface ComparisonActions {
   setLeftHex: (hex: string) => void;
   setRightHex: (hex: string) => void;
-  compare: () => void;
+  compare: () => Promise<void>;
   reset: () => void;
 }
 
@@ -46,18 +47,22 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
     set({ rightHex: hex, rightError: null, rightJson: null, diff: null });
   },
 
-  compare: () => {
+  compare: async () => {
     const { leftHex, rightHex } = get();
 
-    set({ isComparing: true, leftError: null, rightError: null });
+    set({ isComparing: true, leftError: null, rightError: null, diff: null });
+
+    // Yield to the event loop so the "Comparing..." state paints before the
+    // synchronous CBOR decode and diff block the main thread.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const leftResult = parseTransaction(leftHex);
     const rightResult = parseTransaction(rightHex);
 
-    const leftJson = leftResult.ok ? leftResult.json : null;
-    const rightJson = rightResult.ok ? rightResult.json : null;
-    const leftError = leftResult.ok ? null : leftResult.error;
-    const rightError = rightResult.ok ? null : rightResult.error;
+    const leftJson = isOk(leftResult) ? leftResult : null;
+    const rightJson = isOk(rightResult) ? rightResult : null;
+    const leftError = isOk(leftResult) ? null : leftResult.message;
+    const rightError = isOk(rightResult) ? null : rightResult.message;
 
     let diff: JsonDiff | null = null;
     if (leftJson && rightJson) {

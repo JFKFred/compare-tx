@@ -1,4 +1,6 @@
 import { Transaction } from "@emurgo/cardano-serialization-lib-browser";
+import { wrap, isErr, type Result } from "trynot";
+import { cleanHex } from "./hex";
 
 export type TxJson = {
   body: object;
@@ -7,37 +9,35 @@ export type TxJson = {
   isValid: boolean;
 };
 
-export type ParseResult =
-  | { ok: true; json: TxJson }
-  | { ok: false; error: string };
-
-export function parseTransaction(hex: string): ParseResult {
-  const cleanHex = hex.trim().replace(/\s/g, "");
-
-  if (cleanHex.length === 0) {
-    return { ok: false, error: "Empty input" };
-  }
-
-  if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
-    return { ok: false, error: "Invalid hex string" };
-  }
+// wrap's function overload returns a sync/async union; decode is synchronous,
+// so we narrow it back to a plain Result.
+const decode = wrap((cleanHex: string): TxJson => {
+  const tx = Transaction.from_hex(cleanHex);
+  const body = tx.body();
+  const witnessSet = tx.witness_set();
+  const auxiliaryData = tx.auxiliary_data();
 
   try {
-    const tx = Transaction.from_hex(cleanHex);
-
-    const txJson: TxJson = {
-      body: JSON.parse(tx.body().to_json()),
-      witnessSet: JSON.parse(tx.witness_set().to_json()),
-      auxiliaryData: tx.auxiliary_data()
-        ? JSON.parse(tx.auxiliary_data()!.to_json())
-        : null,
+    return {
+      body: JSON.parse(body.to_json()),
+      witnessSet: JSON.parse(witnessSet.to_json()),
+      auxiliaryData: auxiliaryData ? JSON.parse(auxiliaryData.to_json()) : null,
       isValid: tx.is_valid(),
     };
-
-    return { ok: true, json: txJson };
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to parse transaction";
-    return { ok: false, error: message };
+  } finally {
+    auxiliaryData?.free();
+    witnessSet.free();
+    body.free();
+    tx.free();
   }
+}) as (cleanHex: string) => Result<TxJson>;
+
+export function parseTransaction(hex: string): Result<TxJson> {
+  const cleaned = cleanHex(hex);
+
+  if (isErr(cleaned)) {
+    return cleaned;
+  }
+
+  return decode(cleaned);
 }
