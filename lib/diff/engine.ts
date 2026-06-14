@@ -34,6 +34,29 @@ function sortArrayByJson(arr: unknown[]): unknown[] {
   });
 }
 
+// Cardano collections whose element order carries no semantic meaning (sets).
+// Comparing them positionally produces false diffs when two otherwise equal
+// transactions serialize their members in a different order, so we sort these
+// before diffing. Order-significant arrays (outputs, certs, redeemers) are
+// deliberately excluded. Paths are matched with array indices stripped, so a
+// nested set like "witnessSet.plutus_data.elems" matches at any depth.
+const UNORDERED_SET_PATHS = new Set<string>([
+  "body.inputs",
+  "body.reference_inputs",
+  "body.collateral",
+  "body.required_signers",
+  "witnessSet.vkeys",
+  "witnessSet.native_scripts",
+  "witnessSet.bootstraps",
+  "witnessSet.plutus_scripts",
+  "witnessSet.plutus_data.elems",
+]);
+
+function isUnorderedSetPath(parentPath: string): boolean {
+  const normalized = parentPath.replace(/\[\d+\]/g, "");
+  return UNORDERED_SET_PATHS.has(normalized);
+}
+
 function getType(value: unknown): "object" | "array" | "primitive" {
   if (Array.isArray(value)) {
     return "array";
@@ -173,7 +196,7 @@ function diffArrays(
   let leftArr = left || [];
   let rightArr = right || [];
 
-  if (parentPath === "witnessSet.plutus_data.elems") {
+  if (isUnorderedSetPath(parentPath)) {
     leftArr = sortArrayByJson(leftArr);
     rightArr = sortArrayByJson(rightArr);
   }
